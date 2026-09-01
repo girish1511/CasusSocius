@@ -1,6 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceClient } from "../supabase/service";
+import { DOCUMENTS_BUCKET } from "../documents/constants";
 import { buildQuizFiles } from "./files";
+import { validateChartSpec, type ChartSpec } from "./chart-spec";
+import { renderChartPng } from "./chart-render";
 
 const QUIZ_MODEL = "claude-sonnet-4-5";
 
@@ -23,6 +26,14 @@ interface QuizQuestionDraft {
   question: string;
   correct_answer: string;
   explanation: string;
+  chart_spec?: unknown;
+}
+
+export interface QuizQuestionWithChart {
+  question: string;
+  correct_answer: string;
+  explanation: string;
+  chartImageUrl: string | null;
 }
 
 export async function generateQuiz(params: {
@@ -43,10 +54,16 @@ export async function generateQuiz(params: {
     ? await gatherText([styleDocumentId], MAX_STYLE_CHUNKS)
     : null;
 
-  const questions = await draftQuestions(sourceText, styleText, questionCount);
-  if (questions.length === 0) {
+  const drafts = await draftQuestions(sourceText, styleText, questionCount);
+  if (drafts.length === 0) {
     throw new Error("Quiz generation returned no questions.");
   }
+
+  const { data: course } = await supabase
+    .from("courses")
+    .select("name")
+    .eq("id", courseId)
+    .single();
 
   const { data: quiz, error: quizError } = await supabase
     .from("quizzes")
@@ -61,19 +78,54 @@ export async function generateQuiz(params: {
     throw new Error(`Failed to create quiz: ${quizError?.message}`);
   }
 
+  // Validate each draft's chart_spec independently; a malformed one just
+  // means that question renders as text-only, it never fails the batch.
+  const questions: (QuizQuestionDraft & {
+    validChartSpec: ChartSpec | null;
+    chartImageUrl: string | null;
+  })[] = [];
+
+  for (const draft of drafts) {
+    const validChartSpec = draft.chart_spec
+      ? validateChartSpec(draft.chart_spec)
+      : null;
+
+    let chartImageUrl: string | null = null;
+    if (validChartSpec) {
+      try {
+        chartImageUrl = await storeChartImage(quiz.id, questions.length, validChartSpec);
+      } catch (err) {
+        console.error("[quiz/generate] chart render/upload failed, skipping chart:", err);
+      }
+    }
+
+    questions.push({ ...draft, validChartSpec, chartImageUrl });
+  }
+
   const { error: questionsError } = await supabase.from("quiz_questions").insert(
     questions.map((q) => ({
       quiz_id: quiz.id,
       question: q.question,
       correct_answer: q.correct_answer,
       explanation: q.explanation,
+      chart_spec: q.validChartSpec,
+      chart_image_url: q.chartImageUrl,
     }))
   );
   if (questionsError) {
     throw new Error(`Failed to store quiz questions: ${questionsError.message}`);
   }
 
-  const { quizFileUrl, solutionFileUrl } = await buildQuizFiles(quiz.id, questions);
+  const { quizFileUrl, solutionFileUrl } = await buildQuizFiles(
+    quiz.id,
+    course?.name ?? "Practice Quiz",
+    questions.map((q) => ({
+      question: q.question,
+      correct_answer: q.correct_answer,
+      explanation: q.explanation,
+      chartImageUrl: q.chartImageUrl,
+    }))
+  );
 
   const { error: updateError } = await supabase
     .from("quizzes")
@@ -90,6 +142,23 @@ export async function generateQuiz(params: {
     quizFileUrl,
     solutionFileUrl,
   };
+}
+
+async function storeChartImage(
+  quizId: string,
+  questionIndex: number,
+  chartSpec: ChartSpec
+): Promise<string> {
+  const supabase = createServiceClient();
+  const png = await renderChartPng(chartSpec);
+  const path = `quizzes/${quizId}/charts/q${questionIndex}.png`;
+
+  const { error } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .upload(path, png, { contentType: "image/png", upsert: true });
+  if (error) throw new Error(`Failed to store chart image: ${error.message}`);
+
+  return supabase.storage.from(DOCUMENTS_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 async function gatherText(documentIds: string[], perDocLimit: number): Promise<string> {
@@ -134,6 +203,10 @@ Respond with ONLY a JSON array (no prose, no markdown fences), where each elemen
 {"question": "...", "correct_answer": "...", "explanation": "..."}
 
 Do not include multiple-choice "options" fields or any grading rubric — just the question, the correct answer, and an explanation.
+
+OPTIONAL CHART: a question may also include a "chart_spec" field, but only when the question genuinely cannot be answered (or would be significantly harder to understand) without seeing a visual — e.g. "given this supply and demand curve, find the equilibrium price" or "using this bar chart of quarterly revenue, calculate the growth rate". Most questions should have NO chart_spec at all — do not add one just to illustrate a concept that's clear from text alone, and do not add a chart to more than a small minority of the questions. When you do include one, it must match exactly:
+{"chart_type": "bar" | "line" | "pie" | "scatter", "title": "...", "x_label": "...", "y_label": "...", "series": [{"name": "...", "data": [{"x": number, "y": number}, ...]}]}
+Represent supply/demand or cost curves as two or more "line" series of points — there is no dedicated curve type.
 
 Source material:
 ${sourceText}
