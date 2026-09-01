@@ -13,6 +13,9 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const file = formData.get("file");
   const courseId = formData.get("course_id");
+  const categoryRaw = formData.get("category");
+  const category =
+    categoryRaw === "quiz_sample" ? "quiz_sample" : "lecture";
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Missing file" }, { status: 400 });
@@ -59,6 +62,7 @@ export async function POST(request: Request) {
       title: file.name,
       file_url: publicUrl,
       type,
+      category,
       status: "processing",
     })
     .select()
