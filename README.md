@@ -61,10 +61,33 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ```
 app/         Next.js App Router pages and API routes
-components/  Shared React components
+  documents/           Document upload/status UI
+  api/documents/       Upload + status API routes (thin, delegate to /lib)
+components/  Shared React components (DocumentManager, etc.)
 lib/         Document processing, chunking, retrieval, and Supabase client helpers
+  extraction/          PDF/DOCX/PPTX/TXT text extraction, per file type
+  chunking/            Splits extracted text into ~500-800 token chunks
+  embeddings/          OpenAI text-embedding-3-small wrapper
+  documents/           Pipeline orchestration (extract -> chunk -> embed -> store)
+  supabase/            Browser/server/service Supabase clients
+supabase/migrations/  SQL migrations (schema, RLS, storage bucket)
 docs/        Project plan and other reference docs
 ```
+
+## Document pipeline (Phase 1)
+
+Uploading a file at `/documents`:
+1. Validates type (PDF/DOCX/PPTX/TXT) and size, uploads the raw file to the
+   `documents` Supabase Storage bucket, and inserts a `documents` row with
+   `status: 'processing'`.
+2. Kicks off `processDocument` (`lib/documents/pipeline.ts`) in the
+   background: extracts text per file type, chunks it (~500-800 tokens with
+   overlap), embeds each chunk via OpenAI, and inserts rows into `chunks`.
+3. Sets `status: 'ready'` on success, or `status: 'error'` (with the reason
+   logged server-side) if any step fails.
+
+The UI polls `/api/documents/[id]` every couple seconds while a document is
+`processing` and shows the final status.
 
 ## Deployment
 
