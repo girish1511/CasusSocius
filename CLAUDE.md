@@ -46,3 +46,13 @@ Act as a senior full-stack developer. When a decision touches how study content 
 - Environment variables for all API keys (Anthropic, embeddings provider, Supabase) — never hardcode.
 - Keep API routes thin; put document-processing/chunking/retrieval logic in a `/lib` directory so it's testable and reusable.
 - Prefer small, incremental commits per feature over large multi-feature commits.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

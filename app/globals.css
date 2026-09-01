@@ -1,26 +1,63 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0f;
+  --surface: #15151b;
+  --surface-border: #232329;
+  --foreground: #ece9e6;
+  --muted: #6b6b75;
+  --muted-strong: #8a8a94;
+  --accent: #d97757;
+
+  /* 5-step status gradient: success -> error */
+  --status-1: #639922;
+  --status-2: #a3b834;
+  --status-3: #ef9f27;
+  --status-4: #d9633a;
+  --status-5: #e24b4a;
+
+  --border-radius-md: 0.5rem;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-border: var(--surface-border);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-muted: var(--muted);
+  --color-muted-strong: var(--muted-strong);
+  --color-accent: var(--accent);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-status-success: var(--status-1);
+  --color-status-good: var(--status-2);
+  --color-status-neutral: var(--status-3);
+  --color-status-warn: var(--status-4);
+  --color-status-error: var(--status-5);
+
+  --radius-md: var(--border-radius-md);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  --font-serif: var(--font-lora), ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  /* Subtle low-opacity starfield: a handful of faint radial dots plus one
+     very faint glow, fixed to the viewport so it doesn't scroll with
+     content or compete with text. */
+  background-image:
+    radial-gradient(1px 1px at 10% 15%, rgba(236, 233, 230, 0.35), transparent),
+    radial-gradient(1px 1px at 25% 70%, rgba(236, 233, 230, 0.25), transparent),
+    radial-gradient(1.5px 1.5px at 40% 30%, rgba(236, 233, 230, 0.3), transparent),
+    radial-gradient(1px 1px at 60% 80%, rgba(236, 233, 230, 0.2), transparent),
+    radial-gradient(1.5px 1.5px at 75% 20%, rgba(236, 233, 230, 0.3), transparent),
+    radial-gradient(1px 1px at 90% 60%, rgba(236, 233, 230, 0.25), transparent),
+    radial-gradient(1px 1px at 50% 50%, rgba(236, 233, 230, 0.15), transparent),
+    radial-gradient(ellipse at 50% 0%, rgba(217, 119, 87, 0.06), transparent 60%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }

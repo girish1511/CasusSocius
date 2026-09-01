@@ -14,14 +14,16 @@ interface DocumentRow {
 const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt"];
 const POLL_INTERVAL_MS = 2000;
 
+// Maps document status onto the 5-step status gradient: ready -> success
+// (green end), error -> error (red end), processing -> neutral midpoint.
 function statusBadgeClasses(status: string) {
   switch (status) {
     case "ready":
-      return "bg-green-100 text-green-800";
+      return "text-status-success border-status-success/40 bg-status-success/10";
     case "error":
-      return "bg-red-100 text-red-800";
+      return "text-status-error border-status-error/40 bg-status-error/10";
     default:
-      return "bg-yellow-100 text-yellow-800";
+      return "text-status-neutral border-status-neutral/40 bg-status-neutral/10";
   }
 }
 
@@ -109,7 +111,7 @@ export default function DocumentManager() {
   );
 
   return (
-    <div className="w-full max-w-2xl flex flex-col gap-6">
+    <div className="w-full max-w-2xl flex flex-col gap-4">
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -122,18 +124,16 @@ export default function DocumentManager() {
           handleFiles(e.dataTransfer.files);
         }}
         onClick={() => fileInputRef.current?.click()}
-        className={`cursor-pointer rounded-lg border-2 border-dashed p-10 text-center transition-colors ${
+        className={`cursor-pointer rounded-md border border-dashed p-6 text-center transition-colors ${
           isDragging
-            ? "border-blue-500 bg-blue-50"
-            : "border-gray-300 hover:border-gray-400"
+            ? "border-accent bg-accent/5"
+            : "border-surface-border hover:border-muted"
         }`}
       >
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-foreground">
           Drag and drop a file here, or click to choose one
         </p>
-        <p className="mt-1 text-xs text-gray-400">
-          PDF, DOCX, PPTX, or TXT
-        </p>
+        <p className="mt-1 text-xs text-muted-strong">PDF, DOCX, PPTX, or TXT</p>
         <input
           ref={fileInputRef}
           type="file"
@@ -147,7 +147,7 @@ export default function DocumentManager() {
       </div>
 
       {uploadError && (
-        <p className="text-sm text-red-600">{uploadError}</p>
+        <p className="text-sm text-status-error">{uploadError}</p>
       )}
 
       {documents.length > 0 && (
@@ -155,16 +155,16 @@ export default function DocumentManager() {
           {documents.map((doc) => (
             <li
               key={doc.id}
-              className="flex items-center justify-between rounded-md border border-gray-200 px-4 py-3"
+              className="flex items-center justify-between rounded-md border border-surface-border bg-surface px-3 py-2"
             >
               <div className="flex flex-col">
-                <span className="text-sm font-medium">{doc.title}</span>
-                <span className="text-xs text-gray-400 uppercase">
+                <span className="text-sm text-foreground">{doc.title}</span>
+                <span className="font-mono text-xs text-muted-strong uppercase">
                   {doc.type}
                 </span>
               </div>
               <span
-                className={`rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClasses(
+                className={`rounded-md border px-2 py-0.5 font-mono text-xs uppercase ${statusBadgeClasses(
                   doc.status
                 )}`}
               >
