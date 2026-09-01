@@ -1,4 +1,4 @@
-# MBA Study Assistant
+# CasusSocius
 
 A personal RAG (retrieval-augmented generation) web app for studying MBA
 coursework: chat with uploaded course material, generate summaries, and
