@@ -1,30 +1,30 @@
-import { PDFParse } from "pdf-parse";
+import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
 import { extractPdfImages } from "./pdf-images";
 import type { ExtractionResult } from "./types";
 
-// Text extraction stays on pdf-parse, unchanged. Embedded-image extraction
-// goes through pdf-lib instead (see ./pdf-images.ts) — pdf-parse's own
-// getImage() was tried first, but it renders each image via pdfjs-dist
-// internally, and pdfjs-dist's worker setup fails in the bundled Next.js
-// server environment ("Setting up fake worker failed: Cannot find module
-// 'pdf.worker.mjs'"), breaking image extraction (though not text
-// extraction, which doesn't need the worker). pdf-lib parses the PDF
-// object structure directly and synchronously, with no worker/browser
-// dependency, so it doesn't hit this failure mode.
+// Text extraction uses unpdf, not pdf-parse. Root-caused: pdf-parse bundles
+// pdfjs-dist internally (its dist ships pdf.worker.mjs and the literal
+// "fake worker failed" string — confirmed by inspecting its own dist
+// output) and needs that worker file resolvable at a path relative to
+// itself at runtime. That resolution breaks once Next.js bundles the
+// server route, which is what caused the recurring "Setting up fake worker
+// failed: Cannot find module 'pdf.worker.mjs'" error — on TEXT extraction,
+// not the image-extraction path a prior fix touched (that path already
+// used pdf-lib, a fully separate library with no pdfjs/pdf-parse
+// dependency, so it was never the cause and needed no further change).
+//
+// unpdf ships a build of PDF.js specifically compiled for serverless/
+// server environments — no worker thread, no browser APIs, runs
+// synchronously in one call. It has zero npm dependencies of its own
+// (vendors PDF.js directly), so this doesn't introduce a native-dependency
+// risk for Railway either.
 export async function extractPdf(buffer: Buffer): Promise<ExtractionResult> {
-  const parser = new PDFParse({ data: buffer });
-  let segments: ExtractionResult["segments"];
-  try {
-    const textResult = await parser.getText();
-    segments = textResult.pages
-      .filter((page) => page.text.trim().length > 0)
-      .map((page) => ({
-        text: page.text,
-        pageRef: `page ${page.num}`,
-      }));
-  } finally {
-    await parser.destroy();
-  }
+  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+  const { text: pagesText } = await extractPdfText(pdf, { mergePages: false });
+
+  const segments = pagesText
+    .map((text, i) => ({ text: text.trim(), pageRef: `page ${i + 1}` }))
+    .filter((segment) => segment.text.length > 0);
 
   let images: ExtractionResult["images"] = [];
   try {
