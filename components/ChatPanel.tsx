@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import DocumentSelectModal from "./DocumentSelectModal";
+import MarkdownMessage from "./MarkdownMessage";
 
 interface DocOption {
   id: string;
@@ -111,15 +112,19 @@ export default function ChatPanel({ courseId }: { courseId: string }) {
         )}
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "text-right" : ""}>
-            <p
+            <div
               className={`inline-block max-w-[85%] rounded-md px-3 py-2 text-left text-sm ${
                 m.role === "user"
                   ? "bg-accent/10 text-foreground"
                   : "bg-surface text-foreground"
               }`}
             >
-              {m.content}
-            </p>
+              {m.role === "assistant" ? (
+                <MarkdownMessage content={m.content} />
+              ) : (
+                m.content
+              )}
+            </div>
             {m.citations && m.citations.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-1">
                 {m.citations.map((c, ci) => (
