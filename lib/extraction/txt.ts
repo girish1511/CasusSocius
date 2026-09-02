@@ -1,7 +1,6 @@
-import type { TextSegment } from "./types";
+import type { ExtractionResult } from "./types";
 
-export async function extractTxt(buffer: Buffer): Promise<TextSegment[]> {
+export async function extractTxt(buffer: Buffer): Promise<ExtractionResult> {
   const text = buffer.toString("utf-8").trim();
-  if (!text) return [];
-  return [{ text, pageRef: null }];
+  return { segments: text ? [{ text, pageRef: null }] : [], images: [] };
 }

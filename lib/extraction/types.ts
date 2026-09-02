@@ -5,6 +5,21 @@ export interface TextSegment {
   pageRef: string | null;
 }
 
+// A raster image pulled directly out of the document (embedded PDF image
+// XObject, or a DOCX/PPTX media file), tagged with the same page/slide
+// locator its source segment carries so its description can be merged into
+// the right place before chunking.
+export interface ExtractedImage {
+  data: Uint8Array;
+  mimeType: string;
+  pageRef: string | null;
+}
+
+export interface ExtractionResult {
+  segments: TextSegment[];
+  images: ExtractedImage[];
+}
+
 export type SupportedDocumentType = "pdf" | "docx" | "pptx" | "txt";
 
 export const SUPPORTED_MIME_TYPES: Record<string, SupportedDocumentType> = {
