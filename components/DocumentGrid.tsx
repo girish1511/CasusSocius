@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import FileTypeIcon from "./FileTypeIcon";
+import DocumentSummaryModal from "./DocumentSummaryModal";
 
 export interface DocumentRow {
   id: string;
@@ -29,6 +30,7 @@ export default function DocumentGrid({
 }) {
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [summaryDoc, setSummaryDoc] = useState<DocumentRow | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -91,14 +93,21 @@ export default function DocumentGrid({
       {error && <p className="text-xs text-status-error">{error}</p>}
       <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto pr-1">
         {documents.map((doc) => (
-          <div
+          <button
             key={doc.id}
             title={doc.title}
-            className="flex items-center gap-2 rounded-md border border-surface-border bg-background px-2 py-2"
+            onClick={() => {
+              // No-op if a summary is already open for this exact document
+              // — avoids firing a second in-flight request from a repeat
+              // click while it's still loading.
+              if (summaryDoc?.id === doc.id) return;
+              setSummaryDoc(doc);
+            }}
+            className="flex items-center gap-2 rounded-md border border-surface-border bg-background px-2 py-2 text-left transition-colors hover:border-accent hover:bg-accent/5"
           >
             <FileTypeIcon type={doc.type} />
             <span className="truncate text-xs text-foreground">{doc.title}</span>
-          </div>
+          </button>
         ))}
 
         <button
@@ -120,6 +129,14 @@ export default function DocumentGrid({
           e.target.value = "";
         }}
       />
+
+      {summaryDoc && (
+        <DocumentSummaryModal
+          key={summaryDoc.id}
+          document={summaryDoc}
+          onClose={() => setSummaryDoc(null)}
+        />
+      )}
     </div>
   );
 }
