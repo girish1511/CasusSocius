@@ -20,8 +20,27 @@ export interface SummaryResult {
   truncated: boolean;
 }
 
-export async function summarizeDocument(documentId: string): Promise<SummaryResult> {
+// Summaries are cached on the `documents` row (summary, summary_truncated,
+// summary_generated_at) so reopening the same document reuses the stored
+// result instead of re-calling Claude every time. Pass force: true to
+// bypass the cache and regenerate.
+export async function summarizeDocument(
+  documentId: string,
+  options: { force?: boolean } = {}
+): Promise<SummaryResult> {
   const supabase = createServiceClient();
+
+  if (!options.force) {
+    const { data: existing } = await supabase
+      .from("documents")
+      .select("summary, summary_truncated")
+      .eq("id", documentId)
+      .single();
+
+    if (existing?.summary) {
+      return { summary: existing.summary, truncated: existing.summary_truncated };
+    }
+  }
 
   // Ordered by page_ref as specified. Note: page_ref is free-form text
   // ("page 1", "page 10", "slide 2"), so this is a lexical sort, not a
@@ -51,6 +70,21 @@ export async function summarizeDocument(documentId: string): Promise<SummaryResu
   }
 
   const summary = await draftSummary(sourceText, truncated);
+
+  const { error: updateError } = await supabase
+    .from("documents")
+    .update({
+      summary,
+      summary_truncated: truncated,
+      summary_generated_at: new Date().toISOString(),
+    })
+    .eq("id", documentId);
+  if (updateError) {
+    // Don't fail the request over a caching write — the user still gets
+    // their summary, it just won't be cached for next time.
+    console.error(`[documents/summarize] failed to cache summary for ${documentId}:`, updateError);
+  }
+
   return { summary, truncated };
 }
 
